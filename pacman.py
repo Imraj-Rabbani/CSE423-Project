@@ -1,22 +1,27 @@
 from OpenGL.GL import *
 from OpenGL.GLUT import *
 from OpenGL.GLU import *
-from collections import deque
+import math
+import random
 
 camera_pos = (0, 500, 1300)
 fovY = 90
 GRID_LENGTH = 2000
+
 
 TILE_SIZE = 80
 MAZE_WIDTH = 25
 MAZE_HEIGHT = 25
 PLAYER_RADIUS = 30
 
+
 player_pos = [12, 12]  
 player_lives = 3
 player_score = 0
 pellets = []
 maze = []
+player_last_direction = (0, 0)  
+
 
 ghosts = []
 GHOST_RADIUS = 25
@@ -24,20 +29,27 @@ GHOST_MOVE_DELAY = 500
 last_ghost_move_time = 0
 
 class Ghost:
-    def __init__(self, x, y, color):
+    def __init__(self, x, y, color, ghost_type=1):
         self.x = x
         self.y = y
         self.color = color
         self.target_x = x
         self.target_y = y
-
-    #Using BFS to find the shortest path
+        self.ghost_type = ghost_type  
+    
     def find_path_to_player(self):
+        if self.ghost_type == 1:
+            return self.find_pursuit_path()
+        elif self.ghost_type == 2:
+            return self.find_intercept_path()
+    
+    def find_pursuit_path(self):
         player_x, player_y = player_pos
+        from collections import deque
         queue = deque()
         visited = set()
         
-        directions = [(0, 1), (0, -1), (1, 0), (-1, 0)]
+        directions = [(0, 1), (0, -1), (1, 0), (-1, 0)]  
         
         for dx, dy in directions:
             new_x = self.x + dx
@@ -52,6 +64,7 @@ class Ghost:
         
         while queue:
             x, y, distance, first_move = queue.popleft()
+            
             if x == player_x and y == player_y:
                 return first_move
             
@@ -71,13 +84,56 @@ class Ghost:
         
         return None
     
+    def find_intercept_path(self):
+        player_x, player_y = player_pos
+        last_dx, last_dy = player_last_direction
+        
+
+        prediction_steps = 3
+        target_x = player_x + (last_dx * prediction_steps)
+        target_y = player_y + (last_dy * prediction_steps)
+        
+        if target_x < 0 or target_x >= MAZE_WIDTH or target_y < 0 or target_y >= MAZE_HEIGHT or is_wall(target_x, target_y):
+            target_x, target_y = player_x, player_y
+
+        from collections import deque
+        
+        queue = deque()
+        visited = set()
+        
+        directions = [(0, 1), (0, -1), (1, 0), (-1, 0)] 
+        
+        for dx, dy in directions:
+            new_x = self.x + dx
+            new_y = self.y + dy
+            
+            if can_move_to(new_x, new_y):
+                queue.append((new_x, new_y, 1, (dx, dy)))
+                visited.add((new_x, new_y))
+        
+        if not queue:
+            return None
+        
+        while queue:
+            x, y, distance, first_move = queue.popleft()
+            if x == target_x and y == target_y:
+                return first_move
+            for dx, dy in directions:
+                new_x = x + dx
+                new_y = y + dy
+                
+                if (new_x, new_y) not in visited and can_move_to(new_x, new_y):
+                    visited.add((new_x, new_y))
+                    queue.append((new_x, new_y, distance + 1, first_move))
+        
+        return self.find_pursuit_path()
+    
     def update(self):
         move = self.find_path_to_player()
         if move:
             dx, dy = move
             new_x = self.x + dx
             new_y = self.y + dy
-            
             if can_move_to(new_x, new_y):
                 self.x = new_x
                 self.y = new_y
@@ -85,12 +141,10 @@ class Ghost:
 def init_ghosts():
     global ghosts
     ghosts = []
-    ghost_color = (1.0, 0.0, 0.0)
-    ghost_position = (1, 1)
-    
-    x, y = ghost_position
-    if can_move_to(x, y):
-        ghosts.append(Ghost(x, y, ghost_color))
+    if can_move_to(1, 1):
+        ghosts.append(Ghost(1, 1, (1.0, 0.0, 0.0), ghost_type=1))
+    if can_move_to(23, 1):
+        ghosts.append(Ghost(23, 1, (1.0, 0.5, 1.0), ghost_type=2))
 
 def check_ghost_collision():
     global player_lives, player_pos
@@ -99,12 +153,18 @@ def check_ghost_collision():
         if ghost.x == player_pos[0] and ghost.y == player_pos[1]:
             player_lives -= 1
             player_pos = [12, 12]
-            ghost.x = 1
-            ghost.y = 1
+            for g in ghosts:
+                if g.ghost_type == 1: 
+                    g.x = 1
+                    g.y = 1
+                elif g.ghost_type == 2:
+                    g.x = 23
+                    g.y = 1
             break
 
 def update_ghosts():
     global last_ghost_move_time
+    
     current_time = glutGet(GLUT_ELAPSED_TIME)
     if current_time - last_ghost_move_time > GHOST_MOVE_DELAY:
         for ghost in ghosts:
@@ -122,25 +182,25 @@ def draw_ghosts():
         gluSphere(gluNewQuadric(), GHOST_RADIUS, 15, 15)
         glPushMatrix()
         glTranslatef(-8, 8, 10)
-        glColor3f(1, 1, 1)  
+        glColor3f(1, 1, 1) 
         gluSphere(gluNewQuadric(), 3, 8, 8)
         glPopMatrix()
         
         glPushMatrix()
         glTranslatef(8, 8, 10)
-        glColor3f(1, 1, 1)  
+        glColor3f(1, 1, 1)
         gluSphere(gluNewQuadric(), 3, 8, 8)
         glPopMatrix()
         
         glPushMatrix()
         glTranslatef(-8, 8, 12)
-        glColor3f(0, 0, 0)
+        glColor3f(0, 0, 0) 
         gluSphere(gluNewQuadric(), 1, 6, 6)
         glPopMatrix()
         
         glPushMatrix()
         glTranslatef(8, 8, 12)
-        glColor3f(0, 0, 0)  
+        glColor3f(0, 0, 0) 
         gluSphere(gluNewQuadric(), 1, 6, 6)
         glPopMatrix()
         
@@ -181,7 +241,7 @@ def init_pellets():
     pellets = []
     for y in range(MAZE_HEIGHT):
         for x in range(MAZE_WIDTH):
-            if maze[y][x] == 0:
+            if maze[y][x] == 0:  
                 pellets.append([x, y])
 
 def is_wall(x, y):
@@ -228,18 +288,19 @@ def draw_pacman():
     world_y = (player_pos[1] - MAZE_HEIGHT//2) * TILE_SIZE
     
     glTranslatef(world_x, world_y, PLAYER_RADIUS)
+    
     glColor3f(1.0, 1.0, 0.0)
     gluSphere(gluNewQuadric(), PLAYER_RADIUS, 20, 20)
-
+    
     glPushMatrix()
     glTranslatef(-6, 6, 12)
-    glColor3f(0, 0, 0)  # Black eyes
+    glColor3f(0, 0, 0)
     gluSphere(gluNewQuadric(), 2, 10, 10)
     glPopMatrix()
     
     glPushMatrix()
     glTranslatef(6, 6, 12)
-    glColor3f(0, 0, 0)  # Black eyes
+    glColor3f(0, 0, 0)
     gluSphere(gluNewQuadric(), 2, 10, 10)
     glPopMatrix()
     
@@ -248,12 +309,11 @@ def draw_pacman():
 def draw_maze():
     for y in range(MAZE_HEIGHT):
         for x in range(MAZE_WIDTH):
-            if maze[y][x] == 1:  
+            if maze[y][x] == 1: 
                 glPushMatrix()
                 world_x = (x - MAZE_WIDTH//2) * TILE_SIZE
                 world_y = (y - MAZE_HEIGHT//2) * TILE_SIZE
                 glTranslatef(world_x, world_y, TILE_SIZE//2)
-                
                 if (x + y) % 3 == 0:
                     glColor3f(0.0, 0.0, 1.0)
                 elif (x + y) % 3 == 1:
@@ -265,7 +325,7 @@ def draw_maze():
                 glPopMatrix()
 
 def draw_pellets():
-    glColor3f(1.0, 1.0, 0.8)
+    glColor3f(1.0, 1.0, 0.8) 
     
     for pellet in pellets:
         glPushMatrix()
@@ -280,41 +340,44 @@ def draw_game_info():
     draw_text(10, 740, f"Lives: {player_lives}")
     draw_text(10, 710, f"Pellets: {len(pellets)}")
     draw_text(10, 680, "WASD: Move | Arrows: Camera | R: Reset")
-    
     if player_lives <= 0:
         draw_text(350, 400, "GAME OVER!")
         draw_text(320, 370, "Press R to restart")
-    
+
     if len(pellets) == 0:
         draw_text(370, 400, "YOU WIN!")
         draw_text(320, 370, "Press R to restart")
 
 def move_player(dx, dy):
-    global player_pos
+    global player_pos, player_last_direction
     
     new_x = player_pos[0] + dx
     new_y = player_pos[1] + dy
-
+    
     if can_move_to(new_x, new_y):
+        player_last_direction = (dx, dy)
+        
         player_pos[0] = new_x
         player_pos[1] = new_y
+        
         collect_pellet(new_x, new_y)
 
 def reset_game():
-    global player_pos, player_lives, player_score
+    global player_pos, player_lives, player_score, player_last_direction
     player_pos = [12, 12]
     player_lives = 3
     player_score = 0
+    player_last_direction = (0, 0)
     init_maze()
     init_pellets()
-    init_ghosts()
+    init_ghosts()  
 
 def keyboardListener(key, x, y):
     global player_lives
     
     if player_lives <= 0 and key != b'r':
         return
-
+    
     if key == b'w':
         move_player(0, -1)
     
@@ -349,7 +412,6 @@ def specialKeyListener(key, x, y):
     camera_pos = (x, y, z)
 
 
-
 def setupCamera():
     glMatrixMode(GL_PROJECTION)
     glLoadIdentity()
@@ -365,11 +427,9 @@ def setupCamera():
 def idle():
     update_ghosts()
     check_ghost_collision()
-    
     glutPostRedisplay()
 
 def showScreen():
-    """Main display function"""
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
     glLoadIdentity()
     glViewport(0, 0, 1000, 800)
@@ -377,7 +437,7 @@ def showScreen():
     setupCamera()
     
     glBegin(GL_QUADS)
-    glColor3f(0.1, 0.1, 0.1)  
+    glColor3f(0.1, 0.1, 0.1)
     glVertex3f(-GRID_LENGTH, GRID_LENGTH, 0)
     glVertex3f(GRID_LENGTH, GRID_LENGTH, 0)
     glVertex3f(GRID_LENGTH, -GRID_LENGTH, 0)
@@ -387,7 +447,7 @@ def showScreen():
     draw_maze()
     draw_pellets()
     draw_pacman()
-    draw_ghosts()
+    draw_ghosts() 
     draw_game_info()
     
     glutSwapBuffers()
