@@ -5,42 +5,52 @@ import math
 import random
 
 # Camera-related variables
-camera_pos = (0, 500, 500)
-fovY = 120
-GRID_LENGTH = 600
+camera_pos = (0, 500, 1300)
+fovY = 90
+GRID_LENGTH = 2000
 
 # Game constants
-TILE_SIZE = 60
-MAZE_WIDTH = 15
-MAZE_HEIGHT = 15
-PLAYER_RADIUS = 25
+TILE_SIZE = 80
+MAZE_WIDTH = 25
+MAZE_HEIGHT = 25
+PLAYER_RADIUS = 30
 
 # Game state variables
-player_pos = [7, 7]  # Grid position (x, y)
+player_pos = [12, 12]  # Grid position (x, y) - center of larger maze
 player_lives = 3
 player_score = 0
 pellets = []
 maze = []
 
 def init_maze():
-    """Initialize the maze with walls (1) and empty spaces (0)"""
+    """Initialize the maze with walls (1) and empty spaces (0) - Complex 25x25 maze"""
     global maze
     maze = [
-        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-        [1,0,0,0,0,0,0,1,0,0,0,0,0,0,1],
-        [1,0,1,1,0,1,0,1,0,1,0,1,1,0,1],
-        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-        [1,0,1,0,1,1,1,0,1,1,1,0,1,0,1],
-        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-        [1,1,0,1,0,1,0,1,0,1,0,1,0,1,1],
-        [0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
-        [1,1,0,1,0,1,0,1,0,1,0,1,0,1,1],
-        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-        [1,0,1,0,1,1,1,0,1,1,1,0,1,0,1],
-        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-        [1,0,1,1,0,1,0,1,0,1,0,1,1,0,1],
-        [1,0,0,0,0,0,0,1,0,0,0,0,0,0,1],
-        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,0,1,1,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,1,0,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,0,1,1,1,0,1,0,1,1,1,1,1,1,1,1,1,0,1,0,1,1,1,0,1],
+        [1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1],
+        [1,1,1,1,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,1,1,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,1,1,1,1,0,1,0,1,1,0,0,0,0,0,1,1,0,1,0,1,1,1,1,1],
+        [1,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,1],
+        [1,1,1,1,1,0,1,0,1,0,1,1,1,1,1,0,1,0,1,0,1,1,1,1,1],
+        [1,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,1,0,1,1,1,0,0,0,1,1,1,0,1,0,0,0,0,0,1],
+        [1,1,1,1,1,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,1,1,1,1,1],
+        [1,0,0,0,0,0,1,0,1,0,1,1,1,1,1,0,1,0,1,0,0,0,0,0,1],
+        [1,1,1,1,1,0,1,0,1,0,0,0,0,0,0,0,1,0,1,0,1,1,1,1,1],
+        [1,1,1,1,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,1,1,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,0,1,1,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,1,0,1],
+        [1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1],
+        [1,1,1,0,1,0,1,0,1,1,1,1,1,1,1,1,1,0,1,0,1,0,1,1,1],
+        [1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1],
+        [1,0,1,1,1,1,1,1,1,1,1,0,1,0,1,1,1,1,1,1,1,1,1,0,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
     ]
 
 def init_pellets():
@@ -108,23 +118,21 @@ def draw_pacman():
     
     # Add some detail - draw eyes
     glPushMatrix()
-    glTranslatef(-8, 8, 15)
+    glTranslatef(-6, 6, 12)
     glColor3f(0, 0, 0)  # Black eyes
-    gluSphere(gluNewQuadric(), 3, 10, 10)
+    gluSphere(gluNewQuadric(), 2, 10, 10)
     glPopMatrix()
     
     glPushMatrix()
-    glTranslatef(8, 8, 15)
+    glTranslatef(6, 6, 12)
     glColor3f(0, 0, 0)  # Black eyes
-    gluSphere(gluNewQuadric(), 3, 10, 10)
+    gluSphere(gluNewQuadric(), 2, 10, 10)
     glPopMatrix()
     
     glPopMatrix()
 
 def draw_maze():
-    """Draw the 3D maze walls"""
-    glColor3f(0.0, 0.0, 1.0)  # Blue walls
-    
+    """Draw the 3D maze walls with enhanced visual variety"""
     for y in range(MAZE_HEIGHT):
         for x in range(MAZE_WIDTH):
             if maze[y][x] == 1:  # Wall
@@ -132,20 +140,28 @@ def draw_maze():
                 world_x = (x - MAZE_WIDTH//2) * TILE_SIZE
                 world_y = (y - MAZE_HEIGHT//2) * TILE_SIZE
                 glTranslatef(world_x, world_y, TILE_SIZE//2)
+                
+                # Add some color variation to walls based on position
+                if (x + y) % 3 == 0:
+                    glColor3f(0.0, 0.0, 1.0)  # Blue walls
+                elif (x + y) % 3 == 1:
+                    glColor3f(0.0, 0.3, 0.8)  # Darker blue
+                else:
+                    glColor3f(0.2, 0.2, 0.9)  # Lighter blue
+                
                 glutSolidCube(TILE_SIZE)
                 glPopMatrix()
 
 def draw_pellets():
     """Draw pellets (Feature 4: Standard Pellet Collection)"""
-    glColor3f(1.0, 1.0, 1.0)  # White pellets
-    glPointSize(8)
+    glColor3f(1.0, 1.0, 0.8)  # Slightly warm white pellets
     
     for pellet in pellets:
         glPushMatrix()
         world_x = (pellet[0] - MAZE_WIDTH//2) * TILE_SIZE
         world_y = (pellet[1] - MAZE_HEIGHT//2) * TILE_SIZE
-        glTranslatef(world_x, world_y, 10)
-        gluSphere(gluNewQuadric(), 5, 8, 8)
+        glTranslatef(world_x, world_y, 8)
+        gluSphere(gluNewQuadric(), 4, 8, 8)
         glPopMatrix()
 
 def draw_game_info():
@@ -159,15 +175,18 @@ def draw_game_info():
     # Draw pellets remaining
     draw_text(10, 710, f"Pellets: {len(pellets)}")
     
+    # Draw controls
+    draw_text(10, 680, "WASD: Move | Arrows: Camera | R: Reset")
+    
     # Game over message
     if player_lives <= 0:
-        draw_text(400, 400, "GAME OVER!")
-        draw_text(350, 370, "Press R to restart")
+        draw_text(350, 400, "GAME OVER!")
+        draw_text(320, 370, "Press R to restart")
     
     # Victory message
     if len(pellets) == 0:
-        draw_text(400, 400, "YOU WIN!")
-        draw_text(350, 370, "Press R to restart")
+        draw_text(370, 400, "YOU WIN!")
+        draw_text(320, 370, "Press R to restart")
 
 def move_player(dx, dy):
     """Move player with grid-based movement (Feature 2: Grid-Based Movement System)"""
@@ -187,7 +206,7 @@ def move_player(dx, dy):
 def reset_game():
     """Reset the game to initial state"""
     global player_pos, player_lives, player_score
-    player_pos = [7, 7]
+    player_pos = [12, 12]  # Center of larger maze
     player_lives = 3
     player_score = 0
     init_maze()
@@ -197,24 +216,24 @@ def keyboardListener(key, x, y):
     """Handle keyboard input for player movement"""
     global player_lives
     
-    if player_lives <= 0:
+    if player_lives <= 0 and key != b'r':
         return
     
     # Move up (W key)
     if key == b'w':
-        move_player(0, 1)
+        move_player(0, -1)
     
     # Move down (S key) 
     if key == b's':
-        move_player(0, -1)
+        move_player(0, 1)
     
     # Move left (A key)
     if key == b'a':
-        move_player(-1, 0)
+        move_player(1, 0)
     
     # Move right (D key)
     if key == b'd':
-        move_player(1, 0)
+        move_player(-1, 0)
     
     # Reset game (R key)
     if key == b'r':
@@ -227,19 +246,19 @@ def specialKeyListener(key, x, y):
     
     # Move camera up
     if key == GLUT_KEY_UP:
-        z += 20
+        z += 50
     
     # Move camera down
     if key == GLUT_KEY_DOWN:
-        z -= 20
+        z -= 50
     
     # Move camera left
     if key == GLUT_KEY_LEFT:
-        x -= 20
+        y -= 50
     
     # Move camera right
     if key == GLUT_KEY_RIGHT:
-        x += 20
+        y += 50
     
     camera_pos = (x, y, z)
 
@@ -251,7 +270,7 @@ def setupCamera():
     """Configure camera settings"""
     glMatrixMode(GL_PROJECTION)
     glLoadIdentity()
-    gluPerspective(fovY, 1.25, 0.1, 1500)
+    gluPerspective(fovY, 1.25, 0.1, 3000)
     glMatrixMode(GL_MODELVIEW)
     glLoadIdentity()
     
@@ -274,7 +293,7 @@ def showScreen():
     
     # Draw floor
     glBegin(GL_QUADS)
-    glColor3f(0.2, 0.2, 0.2)  # Dark gray floor
+    glColor3f(0.1, 0.1, 0.1)  # Darker floor for better contrast
     glVertex3f(-GRID_LENGTH, GRID_LENGTH, 0)
     glVertex3f(GRID_LENGTH, GRID_LENGTH, 0)
     glVertex3f(GRID_LENGTH, -GRID_LENGTH, 0)
@@ -300,7 +319,7 @@ def main():
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH)
     glutInitWindowSize(1000, 800)
     glutInitWindowPosition(0, 0)
-    wind = glutCreateWindow(b"Pac-Man 3D Game")
+    wind = glutCreateWindow(b"Pac-Man 3D Game - Enhanced Maze")
     
     # Enable depth testing
     glEnable(GL_DEPTH_TEST)
