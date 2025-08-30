@@ -1,19 +1,16 @@
 from OpenGL.GL import *
 from OpenGL.GLUT import *
 from OpenGL.GLU import *
-import math
-import random
+import time
 
 camera_pos = (0, 500, 1300)
 fovY = 90
 GRID_LENGTH = 2000
 
-
 TILE_SIZE = 80
 MAZE_WIDTH = 25
 MAZE_HEIGHT = 25
 PLAYER_RADIUS = 30
-
 
 player_pos = [12, 12]  
 player_lives = 3
@@ -21,7 +18,6 @@ player_score = 0
 pellets = []
 maze = []
 player_last_direction = (0, 0)  
-
 
 ghosts = []
 GHOST_RADIUS = 25
@@ -33,15 +29,95 @@ class Ghost:
         self.x = x
         self.y = y
         self.color = color
-        self.target_x = x
-        self.target_y = y
-        self.ghost_type = ghost_type  
+        self.ghost_type = ghost_type
+        self.patrol_path = []
+        self.patrol_index = 0
+        self.is_chasing = False
+        if ghost_type == 3:
+            self.init_patrol_path()
+    
+    def init_patrol_path(self):
+        patrol_points = []
+        quadrant_x_start = 12
+        quadrant_x_end = 24
+        quadrant_y_start = 12
+        quadrant_y_end = 24
+        
+        for x in range(quadrant_x_start, quadrant_x_end + 1):
+            for y in range(quadrant_y_start, quadrant_y_end + 1):
+                if can_move_to(x, y):
+                    patrol_points.append((x, y))
+        
+        if len(patrol_points) >= 4:
+            self.patrol_path = [
+                patrol_points[0],
+                patrol_points[len(patrol_points)//3],
+                patrol_points[len(patrol_points)//2],
+                patrol_points[-1]
+            ]
+        else:
+            self.patrol_path = patrol_points
     
     def find_path_to_player(self):
         if self.ghost_type == 1:
             return self.find_pursuit_path()
         elif self.ghost_type == 2:
             return self.find_intercept_path()
+        elif self.ghost_type == 3:
+            return self.find_patrol_or_chase_path()
+    
+    def find_patrol_or_chase_path(self):
+        player_x, player_y = player_pos
+        if player_x >= 12 and player_y >= 12:
+            self.is_chasing = True
+            return self.find_pursuit_path()
+        else:
+            self.is_chasing = False
+            return self.find_patrol_path()
+    
+    def find_patrol_path(self):
+        if not self.patrol_path:
+            return None
+        
+        target_x, target_y = self.patrol_path[self.patrol_index]
+        
+        if self.x == target_x and self.y == target_y:
+            self.patrol_index = (self.patrol_index + 1) % len(self.patrol_path)
+            if len(self.patrol_path) > 1:
+                target_x, target_y = self.patrol_path[self.patrol_index]
+        
+        from collections import deque
+        queue = deque()
+        visited = set()
+        
+        directions = [(0, 1), (0, -1), (1, 0), (-1, 0)]
+        
+        for dx, dy in directions:
+            new_x = self.x + dx
+            new_y = self.y + dy
+            
+            if can_move_to(new_x, new_y):
+                queue.append((new_x, new_y, 1, (dx, dy)))
+                visited.add((new_x, new_y))
+        
+        if not queue:
+            return None
+        
+        while queue:
+            x, y, distance, first_move = queue.popleft()
+            
+            if x == target_x and y == target_y:
+                return first_move
+            
+            for dx, dy in directions:
+                new_x = x + dx
+                new_y = y + dy
+                
+                if (new_x, new_y) not in visited and can_move_to(new_x, new_y):
+                    visited.add((new_x, new_y))
+                    queue.append((new_x, new_y, distance + 1, first_move))
+        
+        return None
     
     def find_pursuit_path(self):
         player_x, player_y = player_pos
@@ -88,7 +164,6 @@ class Ghost:
         player_x, player_y = player_pos
         last_dx, last_dy = player_last_direction
         
-
         prediction_steps = 3
         target_x = player_x + (last_dx * prediction_steps)
         target_y = player_y + (last_dy * prediction_steps)
@@ -138,6 +213,36 @@ class Ghost:
                 self.x = new_x
                 self.y = new_y
 
+def init_maze():
+    global maze
+    maze = [
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,0,1,1,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,1,0,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,0,1,1,1,0,1,0,1,1,1,1,1,1,1,1,1,0,1,0,1,1,1,0,1],
+        [1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1],
+        [1,1,1,1,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,1,1,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,1,1,1,1,0,1,0,1,1,0,0,0,0,0,1,1,0,1,0,1,1,1,1,1],
+        [1,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,1],
+        [1,1,1,1,1,0,1,0,1,0,1,1,1,1,1,0,1,0,1,0,1,1,1,1,1],
+        [1,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,1,0,1,1,1,0,0,0,1,1,1,0,1,0,0,0,0,0,1],
+        [1,1,1,1,1,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,1,1,1,1,1],
+        [1,0,0,0,0,0,1,0,1,0,1,1,1,1,1,0,1,0,1,0,0,0,0,0,1],
+        [1,1,1,1,1,0,1,0,1,0,0,0,0,0,0,0,1,0,1,0,1,1,1,1,1],
+        [1,1,1,1,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,1,1,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,0,1,1,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,1,0,1],
+        [1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1],
+        [1,1,1,0,1,0,1,0,1,1,1,1,1,1,1,1,1,0,1,0,1,0,1,1,1],
+        [1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1],
+        [1,0,1,1,1,1,1,1,1,1,1,0,1,0,1,1,1,1,1,1,1,1,1,0,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+    ]
+
 def init_ghosts():
     global ghosts
     ghosts = []
@@ -145,6 +250,8 @@ def init_ghosts():
         ghosts.append(Ghost(1, 1, (1.0, 0.0, 0.0), ghost_type=1))
     if can_move_to(23, 1):
         ghosts.append(Ghost(23, 1, (1.0, 0.5, 1.0), ghost_type=2))
+    if can_move_to(23, 23):
+        ghosts.append(Ghost(23, 23, (0.0, 1.0, 0.0), ghost_type=3))
 
 def check_ghost_collision():
     global player_lives, player_pos
@@ -160,12 +267,17 @@ def check_ghost_collision():
                 elif g.ghost_type == 2:
                     g.x = 23
                     g.y = 1
+                elif g.ghost_type == 3:
+                    g.x = 23
+                    g.y = 23
+                    g.is_chasing = False
+                    g.patrol_index = 0
             break
 
 def update_ghosts():
     global last_ghost_move_time
     
-    current_time = glutGet(GLUT_ELAPSED_TIME)
+    current_time = time.time() * 1000
     if current_time - last_ghost_move_time > GHOST_MOVE_DELAY:
         for ghost in ghosts:
             ghost.update()
@@ -205,36 +317,6 @@ def draw_ghosts():
         glPopMatrix()
         
         glPopMatrix()
-
-def init_maze():
-    global maze
-    maze = [
-        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-        [1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1],
-        [1,0,1,1,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,1,0,1],
-        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-        [1,0,1,1,1,0,1,0,1,1,1,1,1,1,1,1,1,0,1,0,1,1,1,0,1],
-        [1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1],
-        [1,1,1,1,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,1,1,1],
-        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-        [1,1,1,1,1,0,1,0,1,1,0,0,0,0,0,1,1,0,1,0,1,1,1,1,1],
-        [1,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,1],
-        [1,1,1,1,1,0,1,0,1,0,1,1,1,1,1,0,1,0,1,0,1,1,1,1,1],
-        [1,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,1],
-        [1,0,0,0,0,0,1,0,1,1,1,0,0,0,1,1,1,0,1,0,0,0,0,0,1],
-        [1,1,1,1,1,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,1,1,1,1,1],
-        [1,0,0,0,0,0,1,0,1,0,1,1,1,1,1,0,1,0,1,0,0,0,0,0,1],
-        [1,1,1,1,1,0,1,0,1,0,0,0,0,0,0,0,1,0,1,0,1,1,1,1,1],
-        [1,1,1,1,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,1,1,1],
-        [1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1],
-        [1,0,1,1,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,1,0,1],
-        [1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1],
-        [1,1,1,0,1,0,1,0,1,1,1,1,1,1,1,1,1,0,1,0,1,0,1,1,1],
-        [1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1],
-        [1,0,1,1,1,1,1,1,1,1,1,0,1,0,1,1,1,1,1,1,1,1,1,0,1],
-        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-    ]
 
 def init_pellets():
     global pellets
@@ -279,8 +361,6 @@ def draw_text(x, y, text, font=GLUT_BITMAP_HELVETICA_18):
     glMatrixMode(GL_PROJECTION)
     glPopMatrix()
     glMatrixMode(GL_MODELVIEW)
-
-
 
 def draw_pacman():
     glPushMatrix()
@@ -411,7 +491,6 @@ def specialKeyListener(key, x, y):
     
     camera_pos = (x, y, z)
 
-
 def setupCamera():
     glMatrixMode(GL_PROJECTION)
     glLoadIdentity()
@@ -462,7 +541,6 @@ def main():
     glutInitWindowSize(1000, 800)
     glutInitWindowPosition(0, 0)
     wind = glutCreateWindow(b"Pac-Man 3D Game")
-    
     
     glutDisplayFunc(showScreen)
     glutKeyboardFunc(keyboardListener)
