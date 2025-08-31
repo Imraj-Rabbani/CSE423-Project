@@ -17,7 +17,16 @@ player_lives = 3
 player_score = 0
 pellets = []
 maze = []
-player_last_direction = (0, 0)  
+player_last_direction = (0, 0)
+power_pellets = []
+is_vulnerable = False
+vulnerable_timer = 0
+VULNERABILITY_DURATION = 7000 
+BLINK_THRESHOLD = 2000       
+GHOST_HOUSE_POS = (12, 11) 
+can_break_walls = False
+wall_break_timer = 0
+WALL_BREAK_DURATION = 7000 
 
 ghosts = []
 GHOST_RADIUS = 25
@@ -33,6 +42,7 @@ class Ghost:
         self.patrol_path = []
         self.patrol_index = 0
         self.is_chasing = False
+        self.state = 'CHASING'
         if ghost_type == 3:
             self.init_patrol_path()
     
@@ -204,7 +214,16 @@ class Ghost:
         return self.find_pursuit_path()
     
     def update(self):
-        move = self.find_path_to_player()
+        if self.state == 'REGENERATING':
+            if self.x == GHOST_HOUSE_POS[0] and self.y == GHOST_HOUSE_POS[1]:
+                self.state = 'CHASING'
+                return
+            
+            move = self.find_path_to_house()
+
+        else:
+            move = self.find_path_to_player()
+            
         if move:
             dx, dy = move
             new_x = self.x + dx
@@ -212,6 +231,42 @@ class Ghost:
             if can_move_to(new_x, new_y):
                 self.x = new_x
                 self.y = new_y
+
+    def find_path_to_house(self):
+        target_x, target_y = GHOST_HOUSE_POS
+        
+        from collections import deque
+        queue = deque()
+        visited = set()
+        
+        directions = [(0, 1), (0, -1), (1, 0), (-1, 0)]  
+        
+        for dx, dy in directions:
+            new_x = self.x + dx
+            new_y = self.y + dy
+            
+            if can_move_to(new_x, new_y):
+                queue.append((new_x, new_y, 1, (dx, dy)))
+                visited.add((new_x, new_y))
+        
+        if not queue:
+            return None
+        
+        while queue:
+            x, y, distance, first_move = queue.popleft()
+            
+            if x == target_x and y == target_y:
+                return first_move 
+            
+            for dx, dy in directions:
+                new_x = x + dx
+                new_y = y + dy
+                
+                if (new_x, new_y) not in visited and can_move_to(new_x, new_y):
+                    visited.add((new_x, new_y))
+                    queue.append((new_x, new_y, distance + 1, first_move))
+        
+        return None
 
 def init_maze():
     global maze
@@ -254,25 +309,28 @@ def init_ghosts():
         ghosts.append(Ghost(23, 23, (0.0, 1.0, 0.0), ghost_type=3))
 
 def check_ghost_collision():
-    global player_lives, player_pos
+    global player_lives, player_pos, player_score
     
     for ghost in ghosts:
         if ghost.x == player_pos[0] and ghost.y == player_pos[1]:
-            player_lives -= 1
-            player_pos = [12, 12]
-            for g in ghosts:
-                if g.ghost_type == 1: 
-                    g.x = 1
-                    g.y = 1
-                elif g.ghost_type == 2:
-                    g.x = 23
-                    g.y = 1
-                elif g.ghost_type == 3:
-                    g.x = 23
-                    g.y = 23
+            
+            if ghost.state == 'VULNERABLE':
+                ghost.state = 'REGENERATING'
+                player_score += 200 
+                print("Ghost eaten! Returning to house.")
+
+            elif ghost.state == 'CHASING':
+                player_lives -= 1
+                player_pos = [12, 12] 
+        
+                for g in ghosts:
+                    if g.ghost_type == 1: g.x, g.y = 1, 1
+                    elif g.ghost_type == 2: g.x, g.y = 23, 1
+                    elif g.ghost_type == 3: g.x, g.y = 23, 23
                     g.is_chasing = False
                     g.patrol_index = 0
-            break
+                print("Caught by a ghost! Life lost.")
+                break 
 
 def update_ghosts():
     global last_ghost_move_time
@@ -290,30 +348,47 @@ def draw_ghosts():
         world_y = (ghost.y - MAZE_HEIGHT//2) * TILE_SIZE
         
         glTranslatef(world_x, world_y, GHOST_RADIUS)
-        glColor3f(*ghost.color)
+
+        if ghost.state == 'REGENERATING':
+            # Draw as two white eyes
+            glColor3f(1.0, 1.0, 1.0)
+            
+            glPushMatrix()
+            glTranslatef(-6, 6, 10)
+            gluSphere(gluNewQuadric(), 4, 8, 8)
+            glPopMatrix()
+
+            glPushMatrix()
+            glTranslatef(6, 6, 10)
+            gluSphere(gluNewQuadric(), 4, 8, 8)
+            glPopMatrix()
+            
+            glPopMatrix()
+            continue
+
+        elif ghost.state == 'VULNERABLE':
+            time_left = vulnerable_timer - (time.time() * 1000)
+            if time_left < BLINK_THRESHOLD and int(time.time() * 4) % 2 == 0:
+                glColor3f(1.0, 1.0, 1.0) 
+            else:
+                glColor3f(0.2, 0.2, 1.0) 
+        else:
+            glColor3f(*ghost.color)
+        
         gluSphere(gluNewQuadric(), GHOST_RADIUS, 15, 15)
-        glPushMatrix()
-        glTranslatef(-8, 8, 10)
-        glColor3f(1, 1, 1) 
-        gluSphere(gluNewQuadric(), 3, 8, 8)
-        glPopMatrix()
         
+        # Draw the normal eyes
         glPushMatrix()
-        glTranslatef(8, 8, 10)
-        glColor3f(1, 1, 1)
-        gluSphere(gluNewQuadric(), 3, 8, 8)
+        glTranslatef(-8, 8, 10); glColor3f(1, 1, 1); gluSphere(gluNewQuadric(), 3, 8, 8)
         glPopMatrix()
-        
         glPushMatrix()
-        glTranslatef(-8, 8, 12)
-        glColor3f(0, 0, 0) 
-        gluSphere(gluNewQuadric(), 1, 6, 6)
+        glTranslatef(8, 8, 10); glColor3f(1, 1, 1); gluSphere(gluNewQuadric(), 3, 8, 8)
         glPopMatrix()
-        
         glPushMatrix()
-        glTranslatef(8, 8, 12)
-        glColor3f(0, 0, 0) 
-        gluSphere(gluNewQuadric(), 1, 6, 6)
+        glTranslatef(-8, 8, 12); glColor3f(0, 0, 0); gluSphere(gluNewQuadric(), 1, 6, 6)
+        glPopMatrix()
+        glPushMatrix()
+        glTranslatef(8, 8, 12); glColor3f(0, 0, 0); gluSphere(gluNewQuadric(), 1, 6, 6)
         glPopMatrix()
         
         glPopMatrix()
@@ -325,6 +400,10 @@ def init_pellets():
         for x in range(MAZE_WIDTH):
             if maze[y][x] == 0:  
                 pellets.append([x, y])
+
+def init_power_pellets():
+    global power_pellets
+    power_pellets = [[1, 1], [23, 1], [1, 23], [23, 23]]
 
 def is_wall(x, y):
     if x < 0 or x >= MAZE_WIDTH or y < 0 or y >= MAZE_HEIGHT:
@@ -340,6 +419,23 @@ def collect_pellet(x, y):
         if pellet[0] == x and pellet[1] == y:
             pellets.pop(i)
             player_score += 10
+            break
+
+def collect_power_pellet(x, y):
+    global power_pellets, is_vulnerable, vulnerable_timer, can_break_walls, wall_break_timer
+    for i, pp in enumerate(power_pellets):
+        if pp[0] == x and pp[1] == y:
+            power_pellets.pop(i)
+            
+            is_vulnerable = True
+            vulnerable_timer = time.time() * 1000 + VULNERABILITY_DURATION
+            for g in ghosts:
+                g.state = 'VULNERABLE'
+
+            can_break_walls = True
+            wall_break_timer = time.time() * 1000 + WALL_BREAK_DURATION
+
+            print("Power Pellet collected! Ghosts are vulnerable and walls can be broken.") 
             break
 
 def draw_text(x, y, text, font=GLUT_BITMAP_HELVETICA_18):
@@ -415,11 +511,28 @@ def draw_pellets():
         gluSphere(gluNewQuadric(), 4, 8, 8)
         glPopMatrix()
 
+
+def draw_power_pellets():
+    glColor3f(0.8, 1.0, 0.8)
+    
+    for pp in power_pellets:
+        glPushMatrix()
+        world_x = (pp[0] - MAZE_WIDTH//2) * TILE_SIZE
+        world_y = (pp[1] - MAZE_HEIGHT//2) * TILE_SIZE
+        glTranslatef(world_x, world_y, 12)
+        gluSphere(gluNewQuadric(), 8, 10, 10)
+        glPopMatrix()
+
+
 def draw_game_info():
     draw_text(10, 770, f"Score: {player_score}")
     draw_text(10, 740, f"Lives: {player_lives}")
     draw_text(10, 710, f"Pellets: {len(pellets)}")
     draw_text(10, 680, "WASD: Move | Arrows: Camera | R: Reset")
+
+    if can_break_walls:
+        draw_text(370, 770, "WALL BREAKER ACTIVE!")
+
     if player_lives <= 0:
         draw_text(350, 400, "GAME OVER!")
         draw_text(320, 370, "Press R to restart")
@@ -429,18 +542,26 @@ def draw_game_info():
         draw_text(320, 370, "Press R to restart")
 
 def move_player(dx, dy):
-    global player_pos, player_last_direction
+    global player_pos, player_last_direction, maze, can_break_walls
     
     new_x = player_pos[0] + dx
     new_y = player_pos[1] + dy
     
     if can_move_to(new_x, new_y):
         player_last_direction = (dx, dy)
-        
         player_pos[0] = new_x
         player_pos[1] = new_y
-        
         collect_pellet(new_x, new_y)
+        collect_power_pellet(new_x, new_y)
+
+    elif is_wall(new_x, new_y) and can_break_walls:
+        maze[new_y][new_x] = 0 
+        can_break_walls = False 
+        
+        player_last_direction = (dx, dy)
+        player_pos[0] = new_x
+        player_pos[1] = new_y
+        print("Wall broken!")
 
 def reset_game():
     global player_pos, player_lives, player_score, player_last_direction
@@ -450,6 +571,7 @@ def reset_game():
     player_last_direction = (0, 0)
     init_maze()
     init_pellets()
+    init_power_pellets()
     init_ghosts()  
 
 def keyboardListener(key, x, y):
@@ -502,8 +624,29 @@ def setupCamera():
     gluLookAt(x, y, z,
               0, 0, 0,
               0, 0, 1)
+    
+
+def update_vulnerability():
+    global is_vulnerable, vulnerable_timer
+    if is_vulnerable:
+        current_time = time.time() * 1000
+        if current_time > vulnerable_timer:
+            is_vulnerable = False
+            for g in ghosts:
+                if g.state == 'VULNERABLE':
+                    g.state = 'CHASING'
+            print("Vulnerability has worn off!")
+
+def update_wall_break_timer():
+    global can_break_walls, wall_break_timer
+    if can_break_walls:
+        current_time = time.time() * 1000
+        if current_time > wall_break_timer:
+            can_break_walls = False
 
 def idle():
+    update_vulnerability()
+    update_wall_break_timer()
     update_ghosts()
     check_ghost_collision()
     glutPostRedisplay()
@@ -525,6 +668,7 @@ def showScreen():
     
     draw_maze()
     draw_pellets()
+    draw_power_pellets()
     draw_pacman()
     draw_ghosts() 
     draw_game_info()
@@ -534,6 +678,7 @@ def showScreen():
 def main():
     init_maze()
     init_pellets()
+    init_power_pellets()
     init_ghosts()
     
     glutInit()
