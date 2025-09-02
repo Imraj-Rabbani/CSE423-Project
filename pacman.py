@@ -2,6 +2,8 @@ from OpenGL.GL import *
 from OpenGL.GLUT import *
 from OpenGL.GLU import *
 import time
+from collections import deque
+
 
 camera_pos = (0, 500, 1300)
 fovY = 90
@@ -33,8 +35,10 @@ GHOST_RADIUS = 25
 GHOST_MOVE_DELAY = 500  
 last_ghost_move_time = 0
 
+current_level = 1
+BASE_GHOST_MOVE_DELAY = 500 
+
 def is_game_over():
-    """Check if the game is over (no lives left or all pellets collected)"""
     return player_lives <= 0 or len(pellets) == 0
 
 class Ghost:
@@ -100,7 +104,6 @@ class Ghost:
             if len(self.patrol_path) > 1:
                 target_x, target_y = self.patrol_path[self.patrol_index]
         
-        from collections import deque
         queue = deque()
         visited = set()
         
@@ -272,6 +275,20 @@ class Ghost:
         
         return None
 
+def next_level():
+    global current_level, GHOST_MOVE_DELAY, player_pos, player_last_direction
+    current_level += 1
+    print(f"--- LEVEL {current_level} START ---")
+
+    player_pos = [12, 12]
+
+    init_pellets()
+    init_power_pellets()
+    init_ghosts()
+    GHOST_MOVE_DELAY = max(100, BASE_GHOST_MOVE_DELAY - (current_level - 1) * 50)
+
+
+
 def init_maze():
     global maze
     maze = [
@@ -315,7 +332,6 @@ def init_ghosts():
 def check_ghost_collision():
     global player_lives, player_pos, player_score
     
-    # Don't check collisions if game is over
     if is_game_over():
         return
     
@@ -343,7 +359,6 @@ def check_ghost_collision():
 def update_ghosts():
     global last_ghost_move_time
     
-    # Don't update ghosts if game is over
     if is_game_over():
         return
     
@@ -389,7 +404,6 @@ def draw_ghosts():
         
         gluSphere(gluNewQuadric(), GHOST_RADIUS, 15, 15)
         
-        # Draw the normal eyes
         glPushMatrix()
         glTranslatef(-8, 8, 10); glColor3f(1, 1, 1); gluSphere(gluNewQuadric(), 3, 8, 8)
         glPopMatrix()
@@ -539,8 +553,9 @@ def draw_power_pellets():
 def draw_game_info():
     draw_text(10, 770, f"Score: {player_score}")
     draw_text(10, 740, f"Lives: {player_lives}")
-    draw_text(10, 710, f"Pellets: {len(pellets)}")
-    draw_text(10, 680, "WASD: Move | Arrows: Camera | R: Reset")
+    draw_text(10, 710, f"Level: {current_level}")
+    draw_text(10, 680, f"Pellets: {len(pellets)}")
+    draw_text(10, 650, "WASD: Move | Arrows: Camera | R: Reset")
 
     if can_break_walls:
         draw_text(370, 770, "WALL BREAKER ACTIVE!")
@@ -549,14 +564,10 @@ def draw_game_info():
         draw_text(350, 400, "GAME OVER!")
         draw_text(320, 370, "Press R to restart")
 
-    if len(pellets) == 0:
-        draw_text(370, 400, "YOU WIN!")
-        draw_text(320, 370, "Press R to restart")
 
 def move_player(dx, dy):
     global player_pos, player_last_direction, maze, can_break_walls
     
-    # Don't allow player movement if game is over
     if is_game_over():
         return
     
@@ -580,7 +591,7 @@ def move_player(dx, dy):
         print("Wall broken!")
 
 def reset_game():
-    global player_pos, player_lives, player_score, player_last_direction
+    global player_pos, player_lives, player_score, player_last_direction, current_level
     global is_vulnerable, vulnerable_timer, can_break_walls, wall_break_timer
     player_pos = [12, 12]
     player_lives = 3
@@ -590,6 +601,7 @@ def reset_game():
     vulnerable_timer = 0
     can_break_walls = False
     wall_break_timer = 0
+    current_level = 1
     init_maze()
     init_pellets()
     init_power_pellets()
@@ -598,12 +610,10 @@ def reset_game():
 def keyboardListener(key, x, y):
     global player_lives
     
-    # Always allow reset
     if key == b'r':
         reset_game()
         return
     
-    # Don't allow other keys if game is over
     if is_game_over():
         return
     
@@ -653,7 +663,6 @@ def setupCamera():
 def update_vulnerability():
     global is_vulnerable, vulnerable_timer
     
-    # Don't update vulnerability if game is over
     if is_game_over():
         return
         
@@ -669,7 +678,6 @@ def update_vulnerability():
 def update_wall_break_timer():
     global can_break_walls, wall_break_timer
     
-    # Don't update wall break timer if game is over
     if is_game_over():
         return
         
@@ -683,7 +691,12 @@ def idle():
     update_wall_break_timer()
     update_ghosts()
     check_ghost_collision()
+
+    if len(pellets) == 0 and player_lives > 0:
+        next_level()
+
     glutPostRedisplay()
+
 
 def showScreen():
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
