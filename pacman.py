@@ -33,6 +33,10 @@ GHOST_RADIUS = 25
 GHOST_MOVE_DELAY = 500  
 last_ghost_move_time = 0
 
+def is_game_over():
+    """Check if the game is over (no lives left or all pellets collected)"""
+    return player_lives <= 0 or len(pellets) == 0
+
 class Ghost:
     def __init__(self, x, y, color, ghost_type=1):
         self.x = x
@@ -311,6 +315,10 @@ def init_ghosts():
 def check_ghost_collision():
     global player_lives, player_pos, player_score
     
+    # Don't check collisions if game is over
+    if is_game_over():
+        return
+    
     for ghost in ghosts:
         if ghost.x == player_pos[0] and ghost.y == player_pos[1]:
             
@@ -334,6 +342,10 @@ def check_ghost_collision():
 
 def update_ghosts():
     global last_ghost_move_time
+    
+    # Don't update ghosts if game is over
+    if is_game_over():
+        return
     
     current_time = time.time() * 1000
     if current_time - last_ghost_move_time > GHOST_MOVE_DELAY:
@@ -544,6 +556,10 @@ def draw_game_info():
 def move_player(dx, dy):
     global player_pos, player_last_direction, maze, can_break_walls
     
+    # Don't allow player movement if game is over
+    if is_game_over():
+        return
+    
     new_x = player_pos[0] + dx
     new_y = player_pos[1] + dy
     
@@ -565,10 +581,15 @@ def move_player(dx, dy):
 
 def reset_game():
     global player_pos, player_lives, player_score, player_last_direction
+    global is_vulnerable, vulnerable_timer, can_break_walls, wall_break_timer
     player_pos = [12, 12]
     player_lives = 3
     player_score = 0
     player_last_direction = (0, 0)
+    is_vulnerable = False
+    vulnerable_timer = 0
+    can_break_walls = False
+    wall_break_timer = 0
     init_maze()
     init_pellets()
     init_power_pellets()
@@ -577,7 +598,13 @@ def reset_game():
 def keyboardListener(key, x, y):
     global player_lives
     
-    if player_lives <= 0 and key != b'r':
+    # Always allow reset
+    if key == b'r':
+        reset_game()
+        return
+    
+    # Don't allow other keys if game is over
+    if is_game_over():
         return
     
     if key == b'w':
@@ -591,9 +618,6 @@ def keyboardListener(key, x, y):
     
     if key == b'd':
         move_player(-1, 0)
-    
-    if key == b'r':
-        reset_game()
 
 def specialKeyListener(key, x, y):
     global camera_pos
@@ -628,6 +652,11 @@ def setupCamera():
 
 def update_vulnerability():
     global is_vulnerable, vulnerable_timer
+    
+    # Don't update vulnerability if game is over
+    if is_game_over():
+        return
+        
     if is_vulnerable:
         current_time = time.time() * 1000
         if current_time > vulnerable_timer:
@@ -639,6 +668,11 @@ def update_vulnerability():
 
 def update_wall_break_timer():
     global can_break_walls, wall_break_timer
+    
+    # Don't update wall break timer if game is over
+    if is_game_over():
+        return
+        
     if can_break_walls:
         current_time = time.time() * 1000
         if current_time > wall_break_timer:
