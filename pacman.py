@@ -303,8 +303,8 @@ def init_maze():
         [1,1,1,1,1,0,1,0,1,1,0,0,0,0,0,1,1,0,1,0,1,1,1,1,1],
         [1,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,1],
         [1,1,1,1,1,0,1,0,1,0,1,1,1,1,1,0,1,0,1,0,1,1,1,1,1],
-        [1,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,1],
-        [1,0,0,0,0,0,1,0,1,1,1,0,0,0,1,1,1,0,1,0,0,0,0,0,1],
+        [0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,1,0,1,1,1,0,0,0,1,1,1,0,1,0,0,0,0,0,0],
         [1,1,1,1,1,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,1,1,1,1,1],
         [1,0,0,0,0,0,1,0,1,0,1,1,1,1,1,0,1,0,1,0,0,0,0,0,1],
         [1,1,1,1,1,0,1,0,1,0,0,0,0,0,0,0,1,0,1,0,1,1,1,1,1],
@@ -377,7 +377,6 @@ def draw_ghosts():
         glTranslatef(world_x, world_y, GHOST_RADIUS)
 
         if ghost.state == 'REGENERATING':
-            # Draw as two white eyes
             glColor3f(1.0, 1.0, 1.0)
             
             glPushMatrix()
@@ -573,6 +572,22 @@ def move_player(dx, dy):
     
     new_x = player_pos[0] + dx
     new_y = player_pos[1] + dy
+    
+    if new_x < 0 and (new_y == 11 or new_y == 12):
+        player_pos[0] = 24
+        player_pos[1] = new_y
+        player_last_direction = (dx, dy)
+        collect_pellet(player_pos[0], player_pos[1])
+        collect_power_pellet(player_pos[0], player_pos[1])
+        return
+    
+    if new_x >= MAZE_WIDTH and (new_y == 11 or new_y == 12):
+        player_pos[0] = 0
+        player_pos[1] = new_y
+        player_last_direction = (dx, dy)
+        collect_pellet(player_pos[0], player_pos[1])
+        collect_power_pellet(player_pos[0], player_pos[1])
+        return
     
     if can_move_to(new_x, new_y):
         player_last_direction = (dx, dy)
