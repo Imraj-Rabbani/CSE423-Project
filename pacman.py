@@ -101,7 +101,8 @@ hard_maze = [
 ]
 
 def is_game_over():
-    return player_lives <= 0 or len(pellets) == 0
+    # The game is over if lives are gone OR if both regular and power pellets are gone
+    return player_lives <= 0 or (not pellets and not power_pellets)
 
 class Ghost:
     def __init__(self, x, y, color, ghost_type=1):
@@ -655,7 +656,7 @@ def draw_power_pellets():
 
 def draw_special_pellet():
     if special_pellet_pos:
-        glColor3f(0.0, 1.0, 1.0) 
+        glColor3f(1.0, 0.0, 0.0) 
         
         glPushMatrix()
         world_x = (special_pellet_pos[0] - MAZE_WIDTH//2) * TILE_SIZE
@@ -674,6 +675,14 @@ def draw_game_info():
 
     if can_break_walls:
         draw_text(370, 770, "WALL BREAKER ACTIVE!")
+
+    if is_game_over():
+        if player_lives > 0:
+            draw_text(370, 400, "YOU WIN!")
+            draw_text(320, 370, "Press R to restart")
+        else:
+            draw_text(350, 400, "GAME OVER!")
+            draw_text(320, 370, "Press R to restart")
 
     if player_lives <= 0:
         draw_text(350, 400, "GAME OVER!")
@@ -738,7 +747,6 @@ def reset_game(start_new_game=False):
     global player_pos, player_lives, player_score, player_last_direction, current_level
     global is_vulnerable, vulnerable_timer, can_break_walls, wall_break_timer, game_state
     
-    # Only go back to selection screen if 'R' is pressed mid-game
     if not start_new_game:
         game_state = "selection"
 
@@ -751,6 +759,14 @@ def reset_game(start_new_game=False):
     can_break_walls = False
     wall_break_timer = 0
     current_level = 1
+    
+    # --- ADD THESE INITIALIZATION CALLS ---
+    init_maze()
+    init_pellets()
+    init_power_pellets()
+    spawn_special_pellet()
+    init_ghosts()
+    # ------------------------------------
 
 # ---------------------------------------------------
 # MODIFIED CODE BLOCK: `keyboardListener` uses new reset logic
@@ -764,26 +780,15 @@ def keyboardListener(key, x, y):
             game_state = "playing"
             # Initialize the game without going back to the selection screen
             reset_game(start_new_game=True)
-            init_maze()
-            init_pellets()
-            init_power_pellets()
-            init_ghosts()
         elif key == b'2':
             difficulty = "medium"
             game_state = "playing"
             reset_game(start_new_game=True)
-            init_maze()
-            init_pellets()
-            init_power_pellets()
-            init_ghosts()
         elif key == b'3':
             difficulty = "hard"
             game_state = "playing"
             reset_game(start_new_game=True)
-            init_maze()
-            init_pellets()
-            init_power_pellets()
-            init_ghosts()
+
         return
 
     # When 'r' is pressed, call reset_game without the argument to go to the selection screen
@@ -896,6 +901,7 @@ def showScreen():
         draw_maze()
         draw_pellets()
         draw_power_pellets()
+        draw_special_pellet()
         draw_pacman()
         draw_ghosts() 
         draw_game_info()
@@ -907,6 +913,7 @@ def main():
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH)
     glutInitWindowSize(1000, 800)
     glutInitWindowPosition(0, 0)
+    spawn_special_pellet()
     wind = glutCreateWindow(b"Pac-Man 3D Game")
     
     glutDisplayFunc(showScreen)
