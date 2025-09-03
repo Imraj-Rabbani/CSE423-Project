@@ -676,14 +676,42 @@ def reset_game(start_new_game=False):
     can_break_walls = False
     wall_break_timer = 0
     current_level = 1
-    init_maze()
-    init_pellets()
-    init_power_pellets()
-    init_ghosts()  
 
+# ---------------------------------------------------
+# MODIFIED CODE BLOCK: `keyboardListener` uses new reset logic
+# ---------------------------------------------------
 def keyboardListener(key, x, y):
-    global player_lives
+    global player_lives, game_state, difficulty
     
+    if game_state == "selection":
+        if key == b'1':
+            difficulty = "easy"
+            game_state = "playing"
+            # Initialize the game without going back to the selection screen
+            reset_game(start_new_game=True)
+            init_maze()
+            init_pellets()
+            init_power_pellets()
+            init_ghosts()
+        elif key == b'2':
+            difficulty = "medium"
+            game_state = "playing"
+            reset_game(start_new_game=True)
+            init_maze()
+            init_pellets()
+            init_power_pellets()
+            init_ghosts()
+        elif key == b'3':
+            difficulty = "hard"
+            game_state = "playing"
+            reset_game(start_new_game=True)
+            init_maze()
+            init_pellets()
+            init_power_pellets()
+            init_ghosts()
+        return
+
+    # When 'r' is pressed, call reset_game without the argument to go to the selection screen
     if key == b'r':
         reset_game()
         return
@@ -773,35 +801,33 @@ def idle():
     glutPostRedisplay()
 
 def showScreen():
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-    glLoadIdentity()
-    glViewport(0, 0, 1000, 800)
-    
-    setupCamera()
-    
-    glBegin(GL_QUADS)
-    glColor3f(0.1, 0.1, 0.1)
-    glVertex3f(-GRID_LENGTH, GRID_LENGTH, 0)
-    glVertex3f(GRID_LENGTH, GRID_LENGTH, 0)
-    glVertex3f(GRID_LENGTH, -GRID_LENGTH, 0)
-    glVertex3f(-GRID_LENGTH, -GRID_LENGTH, 0)
-    glEnd()
-    
-    draw_maze()
-    draw_pellets()
-    draw_power_pellets()
-    draw_pacman()
-    draw_ghosts() 
-    draw_game_info()
-    
-    glutSwapBuffers()
+    if game_state == "selection":
+        draw_selection_screen()
+    else: # game_state == "playing"
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+        glLoadIdentity()
+        glViewport(0, 0, 1000, 800)
+        
+        setupCamera()
+        
+        glBegin(GL_QUADS)
+        glColor3f(0.1, 0.1, 0.1)
+        glVertex3f(-GRID_LENGTH, GRID_LENGTH, 0)
+        glVertex3f(GRID_LENGTH, GRID_LENGTH, 0)
+        glVertex3f(GRID_LENGTH, -GRID_LENGTH, 0)
+        glVertex3f(-GRID_LENGTH, -GRID_LENGTH, 0)
+        glEnd()
+        
+        draw_maze()
+        draw_pellets()
+        draw_power_pellets()
+        draw_pacman()
+        draw_ghosts() 
+        draw_game_info()
+        
+        glutSwapBuffers()
 
 def main():
-    init_maze()
-    init_pellets()
-    init_power_pellets()
-    init_ghosts()
-    
     glutInit()
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH)
     glutInitWindowSize(1000, 800)
