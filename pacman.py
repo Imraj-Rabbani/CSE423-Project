@@ -195,25 +195,7 @@ class Ghost:
                     queue.append((new_x, new_y, distance + 1, first_move))
         
         return None
-
-    def find_flee_path(self):
-        player_x, player_y = player_pos        
-        directions = [(0, 1), (0, -1), (1, 0), (-1, 0)]
-        possible_moves = []
-        
-        for dx, dy in directions:
-            new_x = self.x + dx
-            new_y = self.y + dy
-            if can_move_to(new_x, new_y):
-                distance_from_player = abs(new_x - player_x) + abs(new_y - player_y)
-                possible_moves.append(((dx, dy), distance_from_player))
-        
-        if not possible_moves:
-            return None
-        
-        possible_moves.sort(key=lambda x: x[1], reverse=True)
-        return possible_moves[0][0]
-
+    
     def find_pursuit_path(self):
         player_x, player_y = player_pos
         from collections import deque
