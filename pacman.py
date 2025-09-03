@@ -2,11 +2,10 @@ from OpenGL.GL import *
 from OpenGL.GLUT import *
 from OpenGL.GLU import *
 import time
+import random
 from collections import deque
-# ---------------------------------------------------
-# MODIFIED CODE BLOCK: New game state for difficulty selection
-# ---------------------------------------------------
-game_state = "selection"  # Can be "selection" or "playing"
+
+game_state = "selection"  
 difficulty = "medium"
 
 camera_pos = (0, 500, 1300)
@@ -25,6 +24,7 @@ pellets = []
 maze = []
 player_last_direction = (0, 0)
 power_pellets = []
+special_pellet_pos = None
 is_vulnerable = False
 vulnerable_timer = 0
 VULNERABILITY_DURATION = 7000
@@ -195,7 +195,25 @@ class Ghost:
                     queue.append((new_x, new_y, distance + 1, first_move))
         
         return None
-    
+
+    def find_flee_path(self):
+        player_x, player_y = player_pos        
+        directions = [(0, 1), (0, -1), (1, 0), (-1, 0)]
+        possible_moves = []
+        
+        for dx, dy in directions:
+            new_x = self.x + dx
+            new_y = self.y + dy
+            if can_move_to(new_x, new_y):
+                distance_from_player = abs(new_x - player_x) + abs(new_y - player_y)
+                possible_moves.append(((dx, dy), distance_from_player))
+        
+        if not possible_moves:
+            return None
+        
+        possible_moves.sort(key=lambda x: x[1], reverse=True)
+        return possible_moves[0][0]
+
     def find_pursuit_path(self):
         player_x, player_y = player_pos
         from collections import deque
@@ -247,8 +265,6 @@ class Ghost:
         
         if target_x < 0 or target_x >= MAZE_WIDTH or target_y < 0 or target_y >= MAZE_HEIGHT or is_wall(target_x, target_y):
             target_x, target_y = player_x, player_y
-
-        from collections import deque
         
         queue = deque()
         visited = set()
@@ -287,22 +303,25 @@ class Ghost:
                 return
             
             move = self.find_path_to_house()
-
+        
+        elif self.state == 'VULNERABLE':
+            move = self.find_flee_path()
+        
         else:
             move = self.find_path_to_player()
+
             
         if move:
             dx, dy = move
-            new_x = self.x + dx
-            new_y = self.y + dy
+            new_x, new_y = self.x + dx, self.y + dy
             if can_move_to(new_x, new_y):
-                self.x = new_x
-                self.y = new_y
+                self.x, self.y = new_x, new_y
+
+
 
     def find_path_to_house(self):
         target_x, target_y = GHOST_HOUSE_POS
-        
-        from collections import deque
+    
         queue = deque()
         visited = set()
         
@@ -334,6 +353,7 @@ class Ghost:
                     queue.append((new_x, new_y, distance + 1, first_move))
         
         return None
+
 
 def next_level():
     global current_level, GHOST_MOVE_DELAY, player_pos, player_last_direction
@@ -381,7 +401,7 @@ def init_maze():
         maze = easy_maze
     elif difficulty == "hard":
         maze = hard_maze
-    else: # Default to medium
+    else:
         maze = medium_maze
 
 def init_ghosts():
@@ -397,29 +417,33 @@ def init_ghosts():
 def check_ghost_collision():
     global player_lives, player_pos, player_score
     
-    if is_game_over():
-        return
-    
     for ghost in ghosts:
         if ghost.x == player_pos[0] and ghost.y == player_pos[1]:
             
             if ghost.state == 'VULNERABLE':
-                ghost.state = 'REGENERATING'
-                player_score += 200 
-                print("Ghost eaten! Returning to house.")
+                player_score += 200
+                
+                if ghost.ghost_type == 1:
+                    ghost.x, ghost.y = 1, 1
+                elif ghost.ghost_type == 2:
+                    ghost.x, ghost.y = 23, 1
+                elif ghost.ghost_type == 3:
+                    ghost.x, ghost.y = 23, 23
+                
+                ghost.state = 'CHASING'
+                print("Ghost eaten and has instantly regenerated!")
 
             elif ghost.state == 'CHASING':
                 player_lives -= 1
                 player_pos = [12, 12] 
-        
+            
                 for g in ghosts:
                     if g.ghost_type == 1: g.x, g.y = 1, 1
                     elif g.ghost_type == 2: g.x, g.y = 23, 1
                     elif g.ghost_type == 3: g.x, g.y = 23, 23
-                    g.is_chasing = False
-                    g.patrol_index = 0
+                    g.is_chasing = False; g.patrol_index = 0
                 print("Caught by a ghost! Life lost.")
-                break 
+                break
 
 def update_ghosts():
     global last_ghost_move_time
@@ -436,34 +460,15 @@ def update_ghosts():
 def draw_ghosts():
     for ghost in ghosts:
         glPushMatrix()
-        world_x = (ghost.x - MAZE_WIDTH//2) * TILE_SIZE
-        world_y = (ghost.y - MAZE_HEIGHT//2) * TILE_SIZE
-        
+        world_x = (ghost.x - MAZE_WIDTH//2) * TILE_SIZE; world_y = (ghost.y - MAZE_HEIGHT//2) * TILE_SIZE
         glTranslatef(world_x, world_y, GHOST_RADIUS)
 
-        if ghost.state == 'REGENERATING':
-            glColor3f(1.0, 1.0, 1.0)
-            
-            glPushMatrix()
-            glTranslatef(-6, 6, 10)
-            gluSphere(gluNewQuadric(), 4, 8, 8)
-            glPopMatrix()
-
-            glPushMatrix()
-            glTranslatef(6, 6, 10)
-            gluSphere(gluNewQuadric(), 4, 8, 8)
-            glPopMatrix()
-            
-            glPopMatrix()
-            continue
-
-        elif ghost.state == 'VULNERABLE':
+        if ghost.state == 'VULNERABLE':
             time_left = vulnerable_timer - (time.time() * 1000)
-            if time_left < BLINK_THRESHOLD and int(time.time() * 4) % 2 == 0:
-                glColor3f(1.0, 1.0, 1.0) 
-            else:
-                glColor3f(0.2, 0.2, 1.0) 
-        else:
+            if time_left < BLINK_THRESHOLD and int(time.time() * 4) % 2 == 0: glColor3f(1.0, 1.0, 1.0)
+            else: 
+                glColor3f(1.0, 0.5, 0.0)
+        else: 
             glColor3f(*ghost.color)
         
         gluSphere(gluNewQuadric(), GHOST_RADIUS, 15, 15)
@@ -494,6 +499,22 @@ def init_pellets():
 def init_power_pellets():
     global power_pellets
     power_pellets = [[1, 1], [23, 1], [1, 23], [23, 23]]
+
+def spawn_special_pellet():
+    global special_pellet_pos
+    
+    if not pellets and not power_pellets:
+        special_pellet_pos = None
+        return
+
+    valid_positions = []
+    for y in range(MAZE_HEIGHT):
+        for x in range(MAZE_WIDTH):
+            if maze[y][x] == 0 and (player_pos[0] != x or player_pos[1] != y):
+                valid_positions.append((x, y))
+    
+    if valid_positions:
+        special_pellet_pos = list(random.choice(valid_positions))
 
 def is_wall(x, y):
     if x < 0 or x >= MAZE_WIDTH or y < 0 or y >= MAZE_HEIGHT:
@@ -527,6 +548,13 @@ def collect_power_pellet(x, y):
 
             print("Power Pellet collected! Ghosts are vulnerable and walls can be broken.") 
             break
+
+def collect_special_pellet(x, y):
+    global player_score, special_pellet_pos
+    if special_pellet_pos and special_pellet_pos[0] == x and special_pellet_pos[1] == y:
+        player_score += 50 
+        print("Special Pellet collected for 50 points!")
+        spawn_special_pellet()
 
 def draw_text(x, y, text, font=GLUT_BITMAP_HELVETICA_18):
     glColor3f(1, 1, 1)
@@ -613,6 +641,17 @@ def draw_power_pellets():
         gluSphere(gluNewQuadric(), 8, 10, 10)
         glPopMatrix()
 
+def draw_special_pellet():
+    if special_pellet_pos:
+        glColor3f(0.0, 1.0, 1.0) 
+        
+        glPushMatrix()
+        world_x = (special_pellet_pos[0] - MAZE_WIDTH//2) * TILE_SIZE
+        world_y = (special_pellet_pos[1] - MAZE_HEIGHT//2) * TILE_SIZE
+        glTranslatef(world_x, world_y, 12)
+        gluSphere(gluNewQuadric(), 10, 12, 12) 
+        glPopMatrix()
+
 
 def draw_game_info():
     draw_text(10, 770, "Score: {}".format(player_score))
@@ -631,8 +670,8 @@ def draw_game_info():
 def draw_selection_screen():
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
     glLoadIdentity()
-    draw_text(350, 500, "--- PAC-MAN 3D ---", GLUT_BITMAP_TIMES_ROMAN_24)
-    draw_text(300, 450, "SELECT DIFFICULTY LEVEL", GLUT_BITMAP_HELVETICA_18)
+    draw_text(350, 500, "--- PAC-MAN 3D ---")
+    draw_text(300, 450, "SELECT DIFFICULTY LEVEL")
     draw_text(320, 400, "Press 1: Easy (More open space)")
     draw_text(320, 370, "Press 2: Medium (Original challenge)")
     draw_text(320, 340, "Press 3: Hard (Tighter corridors)")
@@ -669,6 +708,7 @@ def move_player(dx, dy):
         player_pos[1] = new_y
         collect_pellet(new_x, new_y)
         collect_power_pellet(new_x, new_y)
+        collect_special_pellet(new_x, new_y)
 
     elif is_wall(new_x, new_y) and can_break_walls:
         maze[new_y][new_x] = 0 
@@ -679,14 +719,11 @@ def move_player(dx, dy):
         player_pos[1] = new_y
         print("Wall broken!")
 
-# ---------------------------------------------------
-# MODIFIED CODE BLOCK: `reset_game` function to handle starting vs. resetting
-# ---------------------------------------------------
+
 def reset_game(start_new_game=False):
     global player_pos, player_lives, player_score, player_last_direction, current_level
     global is_vulnerable, vulnerable_timer, can_break_walls, wall_break_timer, game_state
     
-    # Only go back to selection screen if 'R' is pressed mid-game
     if not start_new_game:
         game_state = "selection"
 
@@ -700,9 +737,7 @@ def reset_game(start_new_game=False):
     wall_break_timer = 0
     current_level = 1
 
-# ---------------------------------------------------
-# MODIFIED CODE BLOCK: `keyboardListener` uses new reset logic
-# ---------------------------------------------------
+
 def keyboardListener(key, x, y):
     global player_lives, game_state, difficulty
     
@@ -710,7 +745,6 @@ def keyboardListener(key, x, y):
         if key == b'1':
             difficulty = "easy"
             game_state = "playing"
-            # Initialize the game without going back to the selection screen
             reset_game(start_new_game=True)
             init_maze()
             init_pellets()
@@ -734,7 +768,6 @@ def keyboardListener(key, x, y):
             init_ghosts()
         return
 
-    # When 'r' is pressed, call reset_game without the argument to go to the selection screen
     if key == b'r':
         reset_game()
         return
@@ -826,7 +859,7 @@ def idle():
 def showScreen():
     if game_state == "selection":
         draw_selection_screen()
-    else: # game_state == "playing"
+    else: 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         glLoadIdentity()
         glViewport(0, 0, 1000, 800)
