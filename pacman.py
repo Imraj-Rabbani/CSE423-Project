@@ -4,10 +4,8 @@ from OpenGL.GLU import *
 import time
 import random
 from collections import deque
-# ---------------------------------------------------
-# MODIFIED CODE BLOCK: New game state for difficulty selection
-# ---------------------------------------------------
-game_state = "selection"  # Can be "selection" or "playing"
+
+game_state = "selection"  
 difficulty = "medium"
 
 camera_pos = (0, 500, 1300)
@@ -198,32 +196,7 @@ class Ghost:
                     queue.append((new_x, new_y, distance + 1, first_move))
         
         return None
-
-    def find_flee_path(self):
-        player_x, player_y = player_pos
-        from collections import deque
-        
-        # Get all possible moves
-        directions = [(0, 1), (0, -1), (1, 0), (-1, 0)]
-        possible_moves = []
-        
-        for dx, dy in directions:
-            new_x = self.x + dx
-            new_y = self.y + dy
-            if can_move_to(new_x, new_y):
-                # Calculate distance from player if we move there
-                distance_from_player = abs(new_x - player_x) + abs(new_y - player_y)
-                possible_moves.append(((dx, dy), distance_from_player))
-        
-        if not possible_moves:
-            return None
-        
-        # Sort moves by distance from player (furthest first)
-        possible_moves.sort(key=lambda x: x[1], reverse=True)
-        
-        # Return the move that takes us furthest from the player
-        return possible_moves[0][0]
-
+    
     def find_pursuit_path(self):
         player_x, player_y = player_pos
         from collections import deque
@@ -275,8 +248,6 @@ class Ghost:
         
         if target_x < 0 or target_x >= MAZE_WIDTH or target_y < 0 or target_y >= MAZE_HEIGHT or is_wall(target_x, target_y):
             target_x, target_y = player_x, player_y
-
-        from collections import deque
         
         queue = deque()
         visited = set()
@@ -333,8 +304,7 @@ class Ghost:
 
     def find_path_to_house(self):
         target_x, target_y = GHOST_HOUSE_POS
-        
-        from collections import deque
+    
         queue = deque()
         visited = set()
         
@@ -414,7 +384,7 @@ def init_maze():
         maze = easy_maze
     elif difficulty == "hard":
         maze = hard_maze
-    else: # Default to medium
+    else:
         maze = medium_maze
 
 def init_ghosts():
@@ -691,8 +661,8 @@ def draw_game_info():
 def draw_selection_screen():
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
     glLoadIdentity()
-    draw_text(350, 500, "--- PAC-MAN 3D ---", GLUT_BITMAP_TIMES_ROMAN_24)
-    draw_text(300, 450, "SELECT DIFFICULTY LEVEL", GLUT_BITMAP_HELVETICA_18)
+    draw_text(350, 500, "--- PAC-MAN 3D ---")
+    draw_text(300, 450, "SELECT DIFFICULTY LEVEL")
     draw_text(320, 400, "Press 1: Easy (More open space)")
     draw_text(320, 370, "Press 2: Medium (Original challenge)")
     draw_text(320, 340, "Press 3: Hard (Tighter corridors)")
@@ -740,9 +710,7 @@ def move_player(dx, dy):
         player_pos[1] = new_y
         print("Wall broken!")
 
-# ---------------------------------------------------
-# MODIFIED CODE BLOCK: `reset_game` function to handle starting vs. resetting
-# ---------------------------------------------------
+
 def reset_game(start_new_game=False):
     global player_pos, player_lives, player_score, player_last_direction, current_level
     global is_vulnerable, vulnerable_timer, can_break_walls, wall_break_timer, game_state
@@ -768,9 +736,7 @@ def reset_game(start_new_game=False):
     init_ghosts()
     # ------------------------------------
 
-# ---------------------------------------------------
-# MODIFIED CODE BLOCK: `keyboardListener` uses new reset logic
-# ---------------------------------------------------
+
 def keyboardListener(key, x, y):
     global player_lives, game_state, difficulty
     
@@ -778,7 +744,6 @@ def keyboardListener(key, x, y):
         if key == b'1':
             difficulty = "easy"
             game_state = "playing"
-            # Initialize the game without going back to the selection screen
             reset_game(start_new_game=True)
         elif key == b'2':
             difficulty = "medium"
@@ -791,7 +756,6 @@ def keyboardListener(key, x, y):
 
         return
 
-    # When 'r' is pressed, call reset_game without the argument to go to the selection screen
     if key == b'r':
         reset_game()
         return
@@ -883,7 +847,7 @@ def idle():
 def showScreen():
     if game_state == "selection":
         draw_selection_screen()
-    else: # game_state == "playing"
+    else: 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         glLoadIdentity()
         glViewport(0, 0, 1000, 800)
