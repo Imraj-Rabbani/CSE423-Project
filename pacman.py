@@ -3,7 +3,11 @@ from OpenGL.GLUT import *
 from OpenGL.GLU import *
 import time
 from collections import deque
-
+# ---------------------------------------------------
+# MODIFIED CODE BLOCK: New game state for difficulty selection
+# ---------------------------------------------------
+game_state = "selection"  # Can be "selection" or "playing"
+difficulty = "medium"
 
 camera_pos = (0, 500, 1300)
 fovY = 90
@@ -14,7 +18,7 @@ MAZE_WIDTH = 25
 MAZE_HEIGHT = 25
 PLAYER_RADIUS = 30
 
-player_pos = [12, 12]  
+player_pos = [12, 12]
 player_lives = 3
 player_score = 0
 pellets = []
@@ -23,20 +27,76 @@ player_last_direction = (0, 0)
 power_pellets = []
 is_vulnerable = False
 vulnerable_timer = 0
-VULNERABILITY_DURATION = 7000 
-BLINK_THRESHOLD = 2000       
-GHOST_HOUSE_POS = (12, 11) 
+VULNERABILITY_DURATION = 7000
+BLINK_THRESHOLD = 2000
+GHOST_HOUSE_POS = (12, 11)
 can_break_walls = False
 wall_break_timer = 0
-WALL_BREAK_DURATION = 7000 
+WALL_BREAK_DURATION = 7000
 
 ghosts = []
 GHOST_RADIUS = 25
-GHOST_MOVE_DELAY = 500  
+GHOST_MOVE_DELAY = 500
 last_ghost_move_time = 0
 
 current_level = 1
-BASE_GHOST_MOVE_DELAY = 500 
+BASE_GHOST_MOVE_DELAY = 500
+
+easy_maze = [
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,1,0,1,1,1,0,1,0,1,0,1,0,1,1,1,0,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,0,0,1,0,1,1,1,1,1,1,1,1,1,0,1,0,0,1,1,0,1],
+    [1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1],
+    [1,1,1,1,1,0,1,0,1,1,1,0,1,0,1,1,1,0,1,0,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,0,1,0,1,0,0,0,0,0,0,0,1,0,1,0,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,0,1,0,1,0,0,0,0,0,0,0,1,0,1,0,1,1,1,1,1],
+    [0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0],
+    [0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0],
+    [1,1,1,1,1,0,1,0,1,0,0,0,0,0,0,0,1,0,1,0,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,0,1,0,1,0,0,0,0,0,0,0,1,0,1,0,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,0,1,0,1,1,1,0,1,0,1,1,1,0,1,0,1,1,1,1,1],
+    [1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1],
+    [1,0,1,1,0,0,1,0,1,1,1,1,1,1,1,1,1,0,1,0,0,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,1,0,1,1,1,0,1,0,1,0,1,0,1,1,1,0,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+]
+
+hard_maze = [
+    [1]*25,
+    [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1],
+    [1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1],
+    [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1],
+    [1,0,1,1,1,0,1,0,1,1,1,0,1,0,1,1,1,0,1,0,1,1,1,0,1],
+    [1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1],
+    [1,1,1,0,1,1,1,0,1,1,1,0,1,0,1,1,1,0,1,0,1,1,1,0,1],
+    [1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
+    [1,1,1,0,1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,0,1,1,1,0,1],
+    [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1],
+    [1,1,1,0,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,0,1,1,1,0,1],
+    [1,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0,1],
+    [1,0,1,1,1,0,1,1,1,0,1,0,1,0,1,1,1,0,1,1,1,0,1,1,1],
+    [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1],
+    [1,1,1,0,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,0,1,1,1,0,1],
+    [1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
+    [1,1,1,0,1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,0,1,1,1,0,1],
+    [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1],
+    [1,1,1,0,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,0,1,1,1,0,1],
+    [1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,1,0,1,1,1,0,1,0,1,0,1,1,1,0,1,1,1,0,1,1,1],
+    [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1],
+    [1,1,1,0,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,0,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1]*25
+]
 
 def is_game_over():
     return player_lives <= 0 or len(pellets) == 0
@@ -278,7 +338,7 @@ class Ghost:
 def next_level():
     global current_level, GHOST_MOVE_DELAY, player_pos, player_last_direction
     current_level += 1
-    print(f"--- LEVEL {current_level} START ---")
+    print("--- LEVEL {} START ---".format(current_level))
 
     player_pos = [12, 12]
 
@@ -287,11 +347,9 @@ def next_level():
     init_ghosts()
     GHOST_MOVE_DELAY = max(100, BASE_GHOST_MOVE_DELAY - (current_level - 1) * 50)
 
-
-
 def init_maze():
     global maze
-    maze = [
+    medium_maze = [
         [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
         [1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1],
         [1,0,1,1,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,1,0,1],
@@ -318,6 +376,13 @@ def init_maze():
         [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
         [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
     ]
+
+    if difficulty == "easy":
+        maze = easy_maze
+    elif difficulty == "hard":
+        maze = hard_maze
+    else: # Default to medium
+        maze = medium_maze
 
 def init_ghosts():
     global ghosts
@@ -550,10 +615,10 @@ def draw_power_pellets():
 
 
 def draw_game_info():
-    draw_text(10, 770, f"Score: {player_score}")
-    draw_text(10, 740, f"Lives: {player_lives}")
-    draw_text(10, 710, f"Level: {current_level}")
-    draw_text(10, 680, f"Pellets: {len(pellets)}")
+    draw_text(10, 770, "Score: {}".format(player_score))
+    draw_text(10, 740, "Lives: {}".format(player_lives))
+    draw_text(10, 710, "Level: {}".format(current_level))
+    draw_text(10, 680, "Pellets: {}".format(len(pellets)))
     draw_text(10, 650, "WASD: Move | Arrows: Camera | R: Reset")
 
     if can_break_walls:
@@ -563,6 +628,15 @@ def draw_game_info():
         draw_text(350, 400, "GAME OVER!")
         draw_text(320, 370, "Press R to restart")
 
+def draw_selection_screen():
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+    glLoadIdentity()
+    draw_text(350, 500, "--- PAC-MAN 3D ---", GLUT_BITMAP_TIMES_ROMAN_24)
+    draw_text(300, 450, "SELECT DIFFICULTY LEVEL", GLUT_BITMAP_HELVETICA_18)
+    draw_text(320, 400, "Press 1: Easy (More open space)")
+    draw_text(320, 370, "Press 2: Medium (Original challenge)")
+    draw_text(320, 340, "Press 3: Hard (Tighter corridors)")
+    glutSwapBuffers()
 
 def move_player(dx, dy):
     global player_pos, player_last_direction, maze, can_break_walls
@@ -605,9 +679,17 @@ def move_player(dx, dy):
         player_pos[1] = new_y
         print("Wall broken!")
 
-def reset_game():
+# ---------------------------------------------------
+# MODIFIED CODE BLOCK: `reset_game` function to handle starting vs. resetting
+# ---------------------------------------------------
+def reset_game(start_new_game=False):
     global player_pos, player_lives, player_score, player_last_direction, current_level
-    global is_vulnerable, vulnerable_timer, can_break_walls, wall_break_timer
+    global is_vulnerable, vulnerable_timer, can_break_walls, wall_break_timer, game_state
+    
+    # Only go back to selection screen if 'R' is pressed mid-game
+    if not start_new_game:
+        game_state = "selection"
+
     player_pos = [12, 12]
     player_lives = 3
     player_score = 0
@@ -617,14 +699,42 @@ def reset_game():
     can_break_walls = False
     wall_break_timer = 0
     current_level = 1
-    init_maze()
-    init_pellets()
-    init_power_pellets()
-    init_ghosts()  
 
+# ---------------------------------------------------
+# MODIFIED CODE BLOCK: `keyboardListener` uses new reset logic
+# ---------------------------------------------------
 def keyboardListener(key, x, y):
-    global player_lives
+    global player_lives, game_state, difficulty
     
+    if game_state == "selection":
+        if key == b'1':
+            difficulty = "easy"
+            game_state = "playing"
+            # Initialize the game without going back to the selection screen
+            reset_game(start_new_game=True)
+            init_maze()
+            init_pellets()
+            init_power_pellets()
+            init_ghosts()
+        elif key == b'2':
+            difficulty = "medium"
+            game_state = "playing"
+            reset_game(start_new_game=True)
+            init_maze()
+            init_pellets()
+            init_power_pellets()
+            init_ghosts()
+        elif key == b'3':
+            difficulty = "hard"
+            game_state = "playing"
+            reset_game(start_new_game=True)
+            init_maze()
+            init_pellets()
+            init_power_pellets()
+            init_ghosts()
+        return
+
+    # When 'r' is pressed, call reset_game without the argument to go to the selection screen
     if key == b'r':
         reset_game()
         return
@@ -646,21 +756,21 @@ def keyboardListener(key, x, y):
 
 def specialKeyListener(key, x, y):
     global camera_pos
-    x, y, z = camera_pos
+    x_cam, y_cam, z_cam = camera_pos
     
     if key == GLUT_KEY_UP:
-        z += 50
+        z_cam += 50
     
     if key == GLUT_KEY_DOWN:
-        z -= 50
+        z_cam -= 50
     
     if key == GLUT_KEY_LEFT:
-        y -= 50
+        y_cam -= 50
     
     if key == GLUT_KEY_RIGHT:
-        y += 50
+        y_cam += 50
     
-    camera_pos = (x, y, z)
+    camera_pos = (x_cam, y_cam, z_cam)
 
 def setupCamera():
     glMatrixMode(GL_PROJECTION)
@@ -678,7 +788,7 @@ def setupCamera():
 def update_vulnerability():
     global is_vulnerable, vulnerable_timer
     
-    if is_game_over():
+    if is_game_over() or game_state != "playing":
         return
         
     if is_vulnerable:
@@ -693,7 +803,7 @@ def update_vulnerability():
 def update_wall_break_timer():
     global can_break_walls, wall_break_timer
     
-    if is_game_over():
+    if is_game_over() or game_state != "playing":
         return
         
     if can_break_walls:
@@ -702,47 +812,45 @@ def update_wall_break_timer():
             can_break_walls = False
 
 def idle():
-    update_vulnerability()
-    update_wall_break_timer()
-    update_ghosts()
-    check_ghost_collision()
+    if game_state == "playing":
+        update_vulnerability()
+        update_wall_break_timer()
+        update_ghosts()
+        check_ghost_collision()
 
-    if len(pellets) == 0 and player_lives > 0:
-        next_level()
+        if len(pellets) == 0 and player_lives > 0:
+            next_level()
 
     glutPostRedisplay()
 
-
 def showScreen():
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-    glLoadIdentity()
-    glViewport(0, 0, 1000, 800)
-    
-    setupCamera()
-    
-    glBegin(GL_QUADS)
-    glColor3f(0.1, 0.1, 0.1)
-    glVertex3f(-GRID_LENGTH, GRID_LENGTH, 0)
-    glVertex3f(GRID_LENGTH, GRID_LENGTH, 0)
-    glVertex3f(GRID_LENGTH, -GRID_LENGTH, 0)
-    glVertex3f(-GRID_LENGTH, -GRID_LENGTH, 0)
-    glEnd()
-    
-    draw_maze()
-    draw_pellets()
-    draw_power_pellets()
-    draw_pacman()
-    draw_ghosts() 
-    draw_game_info()
-    
-    glutSwapBuffers()
+    if game_state == "selection":
+        draw_selection_screen()
+    else: # game_state == "playing"
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+        glLoadIdentity()
+        glViewport(0, 0, 1000, 800)
+        
+        setupCamera()
+        
+        glBegin(GL_QUADS)
+        glColor3f(0.1, 0.1, 0.1)
+        glVertex3f(-GRID_LENGTH, GRID_LENGTH, 0)
+        glVertex3f(GRID_LENGTH, GRID_LENGTH, 0)
+        glVertex3f(GRID_LENGTH, -GRID_LENGTH, 0)
+        glVertex3f(-GRID_LENGTH, -GRID_LENGTH, 0)
+        glEnd()
+        
+        draw_maze()
+        draw_pellets()
+        draw_power_pellets()
+        draw_pacman()
+        draw_ghosts() 
+        draw_game_info()
+        
+        glutSwapBuffers()
 
 def main():
-    init_maze()
-    init_pellets()
-    init_power_pellets()
-    init_ghosts()
-    
     glutInit()
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH)
     glutInitWindowSize(1000, 800)
@@ -757,3 +865,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
