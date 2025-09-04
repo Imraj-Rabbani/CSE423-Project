@@ -34,6 +34,9 @@ can_break_walls = False
 wall_break_timer = 0
 WALL_BREAK_DURATION = 7000
 
+score_history = []
+highest_score = 0
+
 ghosts = []
 GHOST_RADIUS = 25
 GHOST_MOVE_DELAY = 500
@@ -98,8 +101,14 @@ hard_maze = [
     [1]*25
 ]
 
+def save_score():
+    global score_history, highest_score, player_score
+    if player_score > 0:
+        score_history.append(player_score)
+        if player_score > highest_score:
+            highest_score = player_score
+
 def is_game_over():
-    # The game is over if lives are gone OR if both regular and power pellets are gone
     return player_lives <= 0 or (not pellets and not power_pellets)
 
 class Ghost:
@@ -664,6 +673,9 @@ def draw_game_info():
     draw_text(10, 680, "Pellets: {}".format(len(pellets)))
     draw_text(10, 650, "WASD: Move | Arrows: Camera | R: Reset")
 
+    draw_text(10, 600, "Highest Score: {}".format(highest_score))
+    draw_text(10, 570, "Score: {}".format(player_score))
+
     if can_break_walls:
         draw_text(370, 770, "WALL BREAKER ACTIVE!")
 
@@ -687,6 +699,9 @@ def draw_selection_screen():
     draw_text(320, 400, "Press 1: Easy (More open space)")
     draw_text(320, 370, "Press 2: Medium (Original challenge)")
     draw_text(320, 340, "Press 3: Hard (Tighter corridors)")
+    
+    
+    
     glutSwapBuffers()
 
 def move_player(dx, dy):
@@ -736,6 +751,9 @@ def reset_game(start_new_game=False):
     global player_pos, player_lives, player_score, player_last_direction, current_level
     global is_vulnerable, vulnerable_timer, can_break_walls, wall_break_timer, game_state
     
+    if game_state == "playing" and player_score > 0:
+        save_score()
+    
     if not start_new_game:
         game_state = "selection"
 
@@ -749,13 +767,11 @@ def reset_game(start_new_game=False):
     wall_break_timer = 0
     current_level = 1
     
-    # --- ADD THESE INITIALIZATION CALLS ---
     init_maze()
     init_pellets()
     init_power_pellets()
     spawn_special_pellet()
     init_ghosts()
-    # ------------------------------------
 
 
 def keyboardListener(key, x, y):
@@ -863,6 +879,9 @@ def idle():
         if len(pellets) == 0 and player_lives > 0:
             next_level()
 
+        if is_game_over() and player_score > 0:
+            save_score()
+
     glutPostRedisplay()
 
 def showScreen():
@@ -909,4 +928,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
