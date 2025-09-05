@@ -208,7 +208,6 @@ class Ghost:
     
     def find_flee_path(self):
         player_x, player_y = player_pos
-        from collections import deque
         
         directions = [(0, 1), (0, -1), (1, 0), (-1, 0)]
         possible_moves = []
@@ -229,7 +228,6 @@ class Ghost:
 
     def find_pursuit_path(self):
         player_x, player_y = player_pos
-        from collections import deque
         queue = deque()
         visited = set()
         
@@ -473,32 +471,20 @@ def update_ghosts():
 def draw_ghosts():
     for ghost in ghosts:
         glPushMatrix()
-        world_x = (ghost.x - MAZE_WIDTH//2) * TILE_SIZE; world_y = (ghost.y - MAZE_HEIGHT//2) * TILE_SIZE
+        world_x = (ghost.x - MAZE_WIDTH//2) * TILE_SIZE
+        world_y = (ghost.y - MAZE_HEIGHT//2) * TILE_SIZE
         glTranslatef(world_x, world_y, GHOST_RADIUS)
 
         if ghost.state == 'VULNERABLE':
             time_left = vulnerable_timer - (time.time() * 1000)
-            if time_left < BLINK_THRESHOLD and int(time.time() * 4) % 2 == 0: glColor3f(1.0, 1.0, 1.0)
+            if time_left < BLINK_THRESHOLD and int(time.time() * 4) % 2 == 0: 
+                glColor3f(1.0, 1.0, 1.0)
             else: 
                 glColor3f(1.0, 0.5, 0.0)
         else: 
             glColor3f(*ghost.color)
         
         gluSphere(gluNewQuadric(), GHOST_RADIUS, 15, 15)
-        
-        glPushMatrix()
-        glTranslatef(-8, 8, 10); glColor3f(1, 1, 1); gluSphere(gluNewQuadric(), 3, 8, 8)
-        glPopMatrix()
-        glPushMatrix()
-        glTranslatef(8, 8, 10); glColor3f(1, 1, 1); gluSphere(gluNewQuadric(), 3, 8, 8)
-        glPopMatrix()
-        glPushMatrix()
-        glTranslatef(-8, 8, 12); glColor3f(0, 0, 0); gluSphere(gluNewQuadric(), 1, 6, 6)
-        glPopMatrix()
-        glPushMatrix()
-        glTranslatef(8, 8, 12); glColor3f(0, 0, 0); gluSphere(gluNewQuadric(), 1, 6, 6)
-        glPopMatrix()
-        
         glPopMatrix()
 
 def init_pellets():
@@ -516,6 +502,7 @@ def init_power_pellets():
 def spawn_special_pellet():
     global special_pellet_pos
     
+    # This prevents spawning special pellets when the level is complete
     if not pellets and not power_pellets:
         special_pellet_pos = None
         return
@@ -713,6 +700,7 @@ def move_player(dx, dy):
     new_x = player_pos[0] + dx
     new_y = player_pos[1] + dy
     
+    #Tunnel Teleportation
     if new_x < 0 and (new_y == 11 or new_y == 12):
         player_pos[0] = 24
         player_pos[1] = new_y
